@@ -1,0 +1,13 @@
+FROM python:3.10
+
+COPY ./requirements.txt /app/requirements.txt
+
+WORKDIR /app
+
+RUN pip install -r requirements.txt
+
+COPY . /app
+
+STOPSIGNAL SIGINT
+
+CMD ["gunicorn", "-w", "3", "-t", "60", "--log-level", "debug", "--capture-output", "--enable-stdio-inheritance", "-b", "0.0.0.0:5000", "webservice:create_app()"]
