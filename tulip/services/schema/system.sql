@@ -1,11 +1,12 @@
-CREATE EXTENSION pgcrypto;
-CREATE EXTENSION intarray;
-CREATE EXTENSION "uuid-ossp";
-CREATE EXTENSION pg_trgm;
-CREATE EXTENSION btree_gin;
-CREATE EXTENSION btree_gist;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS intarray;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS btree_gin;
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
+CREATE EXTENSION IF NOT EXISTS tulip;
 
-ALTER SYSTEM SET shared_preload_libraries = 'timescaledb', 'pg_hint_plan', 'pg_prewarm', 'auto_explain', 'tulip';
 ALTER SYSTEM SET timescaledb.telemetry_level = off;
 
 LOAD 'auto_explain';

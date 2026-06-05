@@ -17,6 +17,27 @@ services:
     # This does not need to be adjusted, unless you actually want to limit it
     # Postgres uses shared memory for caching, and docker assigns just 64 MB by default
     shm_size: '128g'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tulip -d tulip"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  schema-init:
+    image: tulip-timescale:latest
+    depends_on:
+      timescale:
+        condition: service_healthy
+    networks:
+      - internal
+    volumes:
+      - ./services/schema:/schema:ro
+    environment:
+      PGHOST: timescale
+      PGUSER: tulip
+      PGDATABASE: tulip
+    entrypoint: ["/bin/sh", "/schema/init-if-needed.sh"]
+    restart: "no"
 
   frontend:
     build:
@@ -29,8 +50,10 @@ services:
     expose:
       - 3000
     depends_on:
-      - timescale
-      - api
+      schema-init:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
     networks:
       - internal
     environment:
@@ -44,7 +67,8 @@ services:
     image: tulip-api:latest
     restart: unless-stopped
     depends_on:
-      - timescale
+      schema-init:
+        condition: service_completed_successfully
     networks:
       - internal
     volumes:
@@ -71,7 +95,8 @@ services:
       context: services/flagids
     image: tulip-flagids:latest
     depends_on:
-      - timescale
+      schema-init:
+        condition: service_completed_successfully
     networks:
       - internal
     environment:
@@ -92,7 +117,8 @@ services:
     image: tulip-assembler:latest
     restart: unless-stopped
     depends_on:
-      - timescale
+      schema-init:
+        condition: service_completed_successfully
     networks:
       - internal
     volumes:
@@ -132,7 +158,8 @@ services:
     image: tulip-enricher:latest
     restart: unless-stopped
     depends_on:
-      - timescale
+      schema-init:
+        condition: service_completed_successfully
     networks:
       - internal
     volumes:
