@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { API_BASE_PATH } from "../const";
 
 function authHeader(password: string): string {
-  return "Basic " + btoa(`tulip:${password}`);
+  const bytes = new TextEncoder().encode(`tulip:${password}`);
+  let binary = "";
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return "Basic " + btoa(binary);
 }
 
 async function verifyPassword(password: string): Promise<boolean> {
