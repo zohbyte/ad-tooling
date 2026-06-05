@@ -20,6 +20,15 @@ export default defineConfig(({ command, mode }) => {
           rewrite: (path) => path.replace(/^\/api/, '')
         }
       }
+    },
+    preview: {
+      proxy: {
+        '/api': {
+          target: env["API_SERVER_ENDPOINT"] ?? "http://localhost:5000/",
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, '')
+        }
+      }
     }
   })
 })
