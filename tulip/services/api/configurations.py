@@ -13,7 +13,7 @@ start_date = os.getenv("TICK_START", "2018-06-27T13:00:00+02:00")
 flag_regex = os.getenv("FLAG_REGEX", r"[A-Z0-9]{31}=")
 vm_ip = os.getenv("VM_IP", "10.100.1.1")
 game_router_ip = os.getenv("GAME_ROUTER_IP", "10.100.0.1")
-visualizer_url = os.getenv("VISUALIZER_URL", "https://glitch.ad")
+visualizer_url = os.getenv("VISUALIZER_URL", "")
 auth_password = os.getenv("TULIP_AUTH_PASSWORD", "")
 services_file = Path(os.getenv("TULIP_SERVICES_FILE", "/config/services.json"))
 

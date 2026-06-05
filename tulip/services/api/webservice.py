@@ -171,17 +171,22 @@ def getStats():
 
 @application.route("/under_attack")
 def getUnderAttack():
-    res = get(
-        f"{visualizer_url}/api/under-attack",
-        params={
-            "from_tick": request.args.get("from_tick"),
-            "to_tick": request.args.get("to_tick"),
-        },
-    )
-    assert res.status_code == 200
-
-    tick_data = res.json()
-    return return_json_response(tick_data)
+    if not visualizer_url:
+        return return_json_response({})
+    try:
+        res = get(
+            f"{visualizer_url}/api/under-attack",
+            params={
+                "from_tick": request.args.get("from_tick"),
+                "to_tick": request.args.get("to_tick"),
+            },
+            timeout=10,
+        )
+        if res.status_code != 200:
+            return return_json_response({})
+        return return_json_response(res.json())
+    except Exception:
+        return return_json_response({})
 
 
 @application.route("/tags")

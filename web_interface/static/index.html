@@ -211,7 +211,9 @@
       try {
         await api("/api/ping");
         const tulip = await api("/api/tulip/ping", { method: "POST" });
-        el.textContent = tulip.status === 200 ? "Gateway + Tulip OK" : "Gateway OK, Tulip down";
+        el.textContent = tulip.status === 200
+          ? `Gateway OK · Tulip OK (${tulip.url})`
+          : `Gateway OK · Tulip down (${tulip.url})`;
         el.className = "status " + (tulip.status === 200 ? "ok" : "err");
       } catch (e) {
         el.textContent = "Gateway error";

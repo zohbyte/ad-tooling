@@ -6,7 +6,7 @@ services:
       GAME_ROUTER_IP: ${GAME_ROUTER_IP:-10.100.0.1}
       VM_IP: ${VM_IP}
       FLAG_LIFETIME: ${FLAG_LIFETIME:-5}
-      VISUALIZER_URL: ${VISUALIZER_URL:-https://glitch.ad}
+      VISUALIZER_URL: ${VISUALIZER_URL:-}
       TULIP_AUTH_PASSWORD: ${TULIP_AUTH_PASSWORD:-}
 
   assembler:
