@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
 import { API_BASE_PATH } from "../const";
 
+function authHeader(password: string): string {
+  return "Basic " + btoa(`tulip:${password}`);
+}
+
+async function verifyPassword(password: string): Promise<boolean> {
+  const response = await fetch(`${API_BASE_PATH}/services`, {
+    headers: { Authorization: authHeader(password) },
+  });
+  return response.ok;
+}
+
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [required, setRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [password, setPassword] = useState(
-    () => sessionStorage.getItem("tulip_auth_pass") || ""
-  );
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     fetch(`${API_BASE_PATH}/auth/required`)
@@ -17,10 +26,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         }
         return r.json();
       })
-      .then((data) => {
+      .then(async (data) => {
         setRequired(!!data.required);
-        if (!data.required || sessionStorage.getItem("tulip_auth_pass")) {
+        if (!data.required) {
           setReady(true);
+          return;
+        }
+
+        const saved = sessionStorage.getItem("tulip_auth_pass");
+        if (saved && (await verifyPassword(saved))) {
+          setReady(true);
+        } else if (saved) {
+          sessionStorage.removeItem("tulip_auth_pass");
+          sessionStorage.removeItem("tulip_auth_user");
         }
       })
       .catch((err) => {
@@ -31,67 +49,27 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  const onLogin = () => {
+  const onLogin = async () => {
+    setError(null);
+    if (!password.trim()) {
+      setError("Enter a password.");
+      return;
+    }
+    if (!(await verifyPassword(password))) {
+      setError("Wrong password.");
+      return;
+    }
     sessionStorage.setItem("tulip_auth_user", "tulip");
     sessionStorage.setItem("tulip_auth_pass", password);
-    setError(null);
     setReady(true);
   };
 
-  if (error) {
+  if (error && !required) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#0f1419",
-          color: "#e7ecf3",
-          padding: "1rem",
-        }}
-      >
-        <div style={{ maxWidth: 520 }}>
-          <h2 style={{ marginBottom: "0.5rem" }}>Tulip unavailable</h2>
-          <p style={{ color: "#f87171", marginBottom: "1rem" }}>{error}</p>
-          {required && (
-            <>
-              <p style={{ color: "#8fa3bf", marginBottom: "0.5rem" }}>
-                If the API is up, enter your Tulip password:
-              </p>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && onLogin()}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  marginBottom: "0.75rem",
-                  borderRadius: 6,
-                  border: "1px solid #2d3a4f",
-                  background: "#1a2332",
-                  color: "#e7ecf3",
-                }}
-                placeholder="Password"
-              />
-              <button
-                onClick={onLogin}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  borderRadius: 6,
-                  border: "none",
-                  background: "#3b82f6",
-                  color: "white",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Continue
-              </button>
-            </>
-          )}
+      <div className="auth-screen">
+        <div className="auth-card">
+          <h2>Tulip unavailable</h2>
+          <p className="auth-error">{error}</p>
         </div>
       </div>
     );
@@ -102,52 +80,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (!required) return <>{children}</>;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#0f1419",
-        color: "#e7ecf3",
-      }}
-    >
-      <div style={{ width: 320 }}>
-        <h2 style={{ marginBottom: "0.5rem" }}>Tulip</h2>
-        <p style={{ color: "#8fa3bf", marginBottom: "1rem" }}>
-          Enter the Tulip password to continue.
-        </p>
+    <div className="auth-screen">
+      <div className="auth-card">
+        <h2>Tulip</h2>
+        <p className="auth-hint">Enter the Tulip password to continue.</p>
+        {error && <p className="auth-error">{error}</p>}
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onLogin()}
-          style={{
-            width: "100%",
-            padding: "0.5rem",
-            marginBottom: "0.75rem",
-            borderRadius: 6,
-            border: "1px solid #2d3a4f",
-            background: "#1a2332",
-            color: "#e7ecf3",
-          }}
+          onKeyDown={(e) => e.key === "Enter" && void onLogin()}
           placeholder="Password"
+          autoFocus
         />
-        <button
-          onClick={onLogin}
-          style={{
-            width: "100%",
-            padding: "0.5rem",
-            borderRadius: 6,
-            border: "none",
-            background: "#3b82f6",
-            color: "white",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          Unlock
-        </button>
+        <button onClick={() => void onLogin()}>Unlock</button>
       </div>
     </div>
   );

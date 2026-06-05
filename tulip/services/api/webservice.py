@@ -66,11 +66,7 @@ def require_auth():
     creds = request.authorization
     if creds and creds.password == auth_password:
         return None
-    return Response(
-        "Authentication required",
-        401,
-        {"WWW-Authenticate": 'Basic realm="Tulip"'},
-    )
+    return return_json_response({"error": "authentication required"}, status=401)
 
 
 def return_json_response(object, **kwargs):
