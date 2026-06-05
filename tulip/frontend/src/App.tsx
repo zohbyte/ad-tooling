@@ -9,10 +9,12 @@ import { FlowList } from "./components/FlowList";
 import { FlowView } from "./pages/FlowView";
 import { DiffView } from "./pages/DiffView";
 import { Corrie } from "./components/Corrie";
+import { AuthGate } from "./components/AuthGate";
 
 function App() {
   useHotkeys('esc', () => (document.activeElement as HTMLElement).blur(), {enableOnFormTags: true});
   return (
+    <AuthGate>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
@@ -45,6 +47,7 @@ function App() {
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </BrowserRouter>
+    </AuthGate>
   );
 }
 

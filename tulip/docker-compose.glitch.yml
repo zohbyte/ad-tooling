@@ -1,0 +1,50 @@
+version: "3.5"
+services:
+  api:
+    environment:
+      TULIP_SERVICES: ${TULIP_SERVICES:-}
+      TULIP_SERVICES_JSON: ${TULIP_SERVICES_JSON:-}
+      GAME_ROUTER_IP: ${GAME_ROUTER_IP:-10.100.0.1}
+      VM_IP: ${VM_IP}
+      FLAG_LIFETIME: ${FLAG_LIFETIME:-5}
+      VISUALIZER_URL: ${VISUALIZER_URL:-https://glitch.ad}
+      TULIP_AUTH_PASSWORD: ${TULIP_AUTH_PASSWORD:-}
+
+  assembler:
+    environment:
+      PCAP_OVER_IP: ${PCAP_OVER_IP:-host.docker.internal:1337}
+      CONVERTER_DEFAULT: ${CONVERTER_DEFAULT:-b64decode}
+      TULIP_CONVERTERS: ${TULIP_CONVERTERS:-}
+
+  pcap-bridge:
+    build:
+      context: ../scripts
+      dockerfile: Dockerfile.pcap-bridge
+    image: ad-tooling-pcap-bridge:latest
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      PCAP_BRIDGE_LISTEN: ${PCAP_BRIDGE_LISTEN:-0.0.0.0:1337}
+      PCAP_BRIDGE_INTERFACE: ${PCAP_BRIDGE_INTERFACE:-any}
+      PCAP_BRIDGE_BPF: ${PCAP_BRIDGE_BPF:-}
+
+  flagids:
+    environment:
+      FLAGID_SCRAPE: ${FLAGID_SCRAPE:-1}
+      FLAGID_SCAN: ${FLAGID_SCAN:-1}
+      FLAGID_MODE: ${FLAGID_MODE:-glitch}
+      FLAGID_ENDPOINT: ${FLAGID_ENDPOINT:-https://glitch.ad/api/flagids}
+
+  gateway:
+    volumes:
+      - ${EXPLOITS_DIR_HOST:-./exploits}:/workspaces/exploits
+    environment:
+      DEFAULT_TEAM: exploits
+      GLITCH_API_BASE: ${GLITCH_API_BASE:-https://glitch.ad}
+      GLITCH_NOP_HOST: ${GLITCH_NOP_HOST:-10.100.1.1}
+
+networks:
+  internal:

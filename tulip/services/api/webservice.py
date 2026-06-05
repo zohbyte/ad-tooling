@@ -32,8 +32,8 @@ from requests import get
 import dateutil.parser
 from ipaddress import ip_network
 
+import configurations
 from configurations import (
-    services,
     traffic_dir,
     start_date,
     tick_length,
@@ -41,6 +41,8 @@ from configurations import (
     flag_lifetime,
     flag_regex,
     dump_pcaps_dir,
+    resolve_service_tag,
+    auth_password,
 )
 from pathlib import Path
 from data2req import convert_flow_to_http_requests, convert_single_http_requests
@@ -54,6 +56,22 @@ application = Flask(__name__)
 CORS(application)
 db = database.Pool(os.environ["TIMESCALE"])
 
+PUBLIC_PATHS = {"/ping", "/auth/required"}
+
+
+@application.before_request
+def require_auth():
+    if not auth_password or request.path in PUBLIC_PATHS:
+        return None
+    creds = request.authorization
+    if creds and creds.password == auth_password:
+        return None
+    return Response(
+        "Authentication required",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Tulip"'},
+    )
+
 
 def return_json_response(object, **kwargs):
     return Response(json_util.dumps(object), mimetype="application/json", **kwargs)
@@ -63,9 +81,25 @@ def return_text_response(object, **kwargs):
     return Response(object, mimetype="text/plain", **kwargs)
 
 
+def enrich_flow(flow: dict) -> dict:
+    flow["service_tag"] = resolve_service_tag(str(flow["ip_dst"]), flow["port_dst"])
+    flow["suricata"] = [sig["id"] for sig in flow.get("signatures", [])]
+    return flow
+
+
 @application.route("/")
 def hello_world():
     return "Hello, World!"
+
+
+@application.route("/ping")
+def ping():
+    return return_json_response({"status": "ok", "service": "tulip-api"})
+
+
+@application.route("/auth/required")
+def auth_required():
+    return return_json_response({"required": bool(auth_password)})
 
 
 @application.route("/tick_info")
@@ -115,7 +149,7 @@ def query():
 
     with db.connection() as c:
         flows = c.flow_query(query)
-    flows = list(map(dataclasses.asdict, flows))
+    flows = [enrich_flow(dataclasses.asdict(flow)) for flow in flows]
     return return_json_response(flows)
 
 
@@ -169,7 +203,30 @@ def setStar():
 
 @application.route("/services")
 def getServices():
-    return return_json_response(services)
+    return return_json_response(configurations.list_editable_services())
+
+
+@application.route("/services", methods=["POST"])
+def addService():
+    body = request.get_json() or {}
+    if "port" not in body or "name" not in body:
+        return return_json_response({"error": "port and name required"}, status=400)
+    try:
+        port = int(body["port"])
+    except (TypeError, ValueError):
+        return return_json_response({"error": "invalid port"}, status=400)
+    name = str(body["name"]).strip()
+    if not name:
+        return return_json_response({"error": "name required"}, status=400)
+    ip = body.get("ip") or configurations.vm_ip
+    configurations.add_service(port, name, ip)
+    return return_json_response(configurations.list_editable_services())
+
+
+@application.route("/services/<int:port>", methods=["DELETE"])
+def deleteService(port: int):
+    configurations.remove_service(port)
+    return return_json_response(configurations.list_editable_services())
 
 
 @application.route("/flag_regex")
@@ -182,7 +239,9 @@ def getFlowDetail(id):
     id = uuid.UUID(id)
     with db.connection() as c:
         flow = c.flow_detail(id)
-    return return_json_response(flow)
+    if not flow:
+        return return_json_response({"error": "flow not found"}, status=404)
+    return return_json_response(enrich_flow(dataclasses.asdict(flow)))
 
 
 @application.route("/to_single_python_request", methods=["POST"])

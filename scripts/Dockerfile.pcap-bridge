@@ -1,0 +1,12 @@
+FROM alpine:3.20
+
+RUN apk add --no-cache tcpdump python3
+
+COPY pcap-live-bridge.py /pcap-live-bridge.py
+RUN chmod +x /pcap-live-bridge.py
+
+ENV PCAP_BRIDGE_LISTEN=0.0.0.0:1337
+ENV PCAP_BRIDGE_INTERFACE=any
+ENV PCAP_BRIDGE_BPF=
+
+CMD ["sh", "-c", "exec python3 /pcap-live-bridge.py --listen \"$PCAP_BRIDGE_LISTEN\" --interface \"$PCAP_BRIDGE_INTERFACE\" ${PCAP_BRIDGE_BPF:+--bpf \"$PCAP_BRIDGE_BPF\"}"]

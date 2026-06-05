@@ -108,15 +108,6 @@ export function FlowList() {
   else if(startedTimeStamp && fulfilledTimeStamp)
     searchMessage = `Search took ${fulfilledTimeStamp - startedTimeStamp}ms`
 
-  // TODO: fix the below transformation - move it to server
-  // Diederik gives you a beer once it has been fixed
-  const transformedFlowData = flowData?.map((flow) => ({
-    ...flow,
-    service_tag:
-      services?.find((s) => s.ip === flow.dst_ip && s.port === flow.dst_port)
-        ?.name ?? "unknown",
-  }));
-
   const onHeartHandler = async (flow: Flow) => {
     await starFlow({ id: flow.id, star: !flow.tags.includes("starred") });
     if(FORCE_REFETCH_ON_STAR) refetch();
@@ -129,8 +120,8 @@ export function FlowList() {
         index: flowIndex,
         behavior: 'auto',
         done: () => {
-          if (transformedFlowData && transformedFlowData[flowIndex ?? 0]) {
-            let idAtIndex = transformedFlowData[flowIndex ?? 0].id;
+          if (flowData && flowData[flowIndex ?? 0]) {
+            let idAtIndex = flowData[flowIndex ?? 0].id;
             // if the current flow ID at the index indeed did change (ie because of keyboard navigation), we need to update the URL as well as local ID
             if (idAtIndex !== openedFlowID) {
               navigate(`/flow/${idAtIndex}?${searchParams}`)
@@ -145,15 +136,15 @@ export function FlowList() {
 
   // TODO: there must be a better way to do this
   // this gets called on every refetch, we dont want to iterate all flows on every refetch
-  // so because performance, we hack this by checking if the transformedFlowData length changed
-  const [transformedFlowDataLength, setTransformedFlowDataLength] = useState<number>(0);
+  // so because performance, we hack this by checking if the flowData length changed
+  const [flowDataLength, setFlowDataLength] = useState<number>(0);
   useEffect(
     () => {
-      if (transformedFlowData && transformedFlowDataLength != transformedFlowData?.length) {
-        setTransformedFlowDataLength(transformedFlowData?.length)
+      if (flowData && flowDataLength != flowData?.length) {
+        setFlowDataLength(flowData?.length)
 
-        for (let i = 0; i < transformedFlowData?.length; i++) {
-          if (transformedFlowData[i].id === openedFlowID) {
+        for (let i = 0; i < flowData?.length; i++) {
+          if (flowData[i].id === openedFlowID) {
             if (i !== flowIndex) {
               setFlowIndex(i)
             }
@@ -163,20 +154,20 @@ export function FlowList() {
         setFlowIndex(0)
       }
     },
-    [transformedFlowData]
+    [flowData]
   )
 
   useHotkeys('x', async () => {
-    if(transformedFlowData) {
-      let flow = transformedFlowData[flowIndex ?? 0]
+    if(flowData) {
+      let flow = flowData[flowIndex ?? 0]
       await onHeartHandler(flow);
     }
   })
 
-  useHotkeys('j', () => setFlowIndex(fi => Math.min((transformedFlowData?.length ?? 1)-1, fi + 1)), [transformedFlowData?.length]);
+  useHotkeys('j', () => setFlowIndex(fi => Math.min((flowData?.length ?? 1)-1, fi + 1)), [flowData?.length]);
   useHotkeys('w', () => {
-    if(transformedFlowData) {
-      let idAtIndex = transformedFlowData[flowIndex ?? 0].id;
+    if(flowData) {
+      let idAtIndex = flowData[flowIndex ?? 0].id;
       if (idAtIndex != openedFlowID) {
         let flowids = flowData?.map((flow, idx) => ([flow.id, idx]))
         if (flowids) {
@@ -266,7 +257,7 @@ export function FlowList() {
           [classes.list_container]: true,
           "sidebar-loading": isLoading,
         })}
-        data={transformedFlowData}
+        data={flowData}
         ref={virtuoso}
         initialTopMostItemIndex={flowIndex}
         itemContent={(index, flow) => (

@@ -11,6 +11,7 @@ import {
   Stats,
   TicksAttackInfo,
   TicksAttackQuery,
+  Signature,
 } from "./types";
 
 function base64DecodeUnicode(str: string) : string {
@@ -22,10 +23,41 @@ function base64DecodeUnicode(str: string) : string {
 }
 
 export const tulipApi = createApi({
-  baseQuery: fetchBaseQuery({ baseUrl: API_BASE_PATH }),
+  baseQuery: fetchBaseQuery({
+    baseUrl: API_BASE_PATH,
+    prepareHeaders: (headers) => {
+      const user = sessionStorage.getItem("tulip_auth_user") || "tulip";
+      const pass = sessionStorage.getItem("tulip_auth_pass");
+      if (pass) {
+        headers.set(
+          "Authorization",
+          "Basic " + btoa(`${user}:${pass}`)
+        );
+      }
+      return headers;
+    },
+  }),
+  tagTypes: ["Services"],
   endpoints: (builder) => ({
     getServices: builder.query<Service[], void>({
       query: () => "/services",
+      providesTags: ["Services"],
+    }),
+    addService: builder.mutation<Service[], { port: number; name: string; ip?: string }>({
+      query: (body) => ({
+        url: "/services",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      }),
+      invalidatesTags: ["Services"],
+    }),
+    deleteService: builder.mutation<Service[], number>({
+      query: (port) => ({
+        url: `/services/${port}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Services"],
     }),
     getFlagRegex: builder.query<string, void>({
       query: () => "/flag_regex",
@@ -61,8 +93,8 @@ export const tulipApi = createApi({
           flags: flow.flags,
           flagids: flow.flagids,
           filename: flow.pcap_name,
-          service_tag: "",
-          suricata: [],
+          service_tag: flow.service_tag ?? "",
+          suricata: flow.suricata ?? flow.signatures?.map((s: Signature) => s.id) ?? [],
           signatures: flow.signatures,
           flow: Object.values(representations),
         };
@@ -94,8 +126,8 @@ export const tulipApi = createApi({
           flags: flow.flags,
           flagids: flow.flagids,
           filename: flow.pcap_name,
-          service_tag: "",
-          suricata: [],
+          service_tag: flow.service_tag ?? "",
+          suricata: flow.suricata ?? flow.signatures?.map((s: { id: number }) => s.id) ?? [],
         }));
       },
     }),
@@ -194,6 +226,8 @@ export const tulipApi = createApi({
 
 export const {
   useGetServicesQuery,
+  useAddServiceMutation,
+  useDeleteServiceMutation,
   useGetFlagRegexQuery,
   useGetFlowQuery,
   useGetFlowsQuery,

@@ -12,3 +12,8 @@ RUN python3 -m pip install -r ./converters/helpers/requirements.txt --break-syst
 COPY . .
 
 RUN go build ./cmd/assembler
+
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]

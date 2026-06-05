@@ -1,0 +1,18 @@
+version: "3.5"
+services:
+  flagidendpoint:
+    build:
+      context: services/go-importer/test_data
+    image: tulip-flagidendpoint:latest
+    restart: unless-stopped
+    networks:
+      - internal
+
+  flagids:
+    environment:
+      FLAGID_SCRAPE: "1"
+      FLAGID_SCAN: "1"
+      FLAGID_ENDPOINT: "http://flagidendpoint:8000/flagids.json"
+
+networks:
+  internal:

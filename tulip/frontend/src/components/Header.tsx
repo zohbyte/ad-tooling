@@ -24,6 +24,7 @@ import {
   useGetServicesQuery,
 } from "../api";
 import { getTickStuff } from "../tick";
+import { ServiceManager } from "./ServiceManager";
 
 function ServiceSelection() {
   const FILTER_KEY = SERVICE_FILTER_KEY;
@@ -272,6 +273,9 @@ export function Header() {
         <Suspense>
           <ServiceSelection></ServiceSelection>
         </Suspense>
+      </div>
+      <div>
+        <ServiceManager />
       </div>
       <div>
         <StartDateSelection></StartDateSelection>

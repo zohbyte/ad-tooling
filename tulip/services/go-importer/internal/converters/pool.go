@@ -2,10 +2,12 @@ package converters
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"sync/atomic"
 )
 
-// TODO: we need some configuration file for this/re-use configuration.py somehow
 // Waterfall-like effect, each stage's outputs keep falling towards next group, e.g.
 // using 2 converters will cause the next group to get the output of those two passed to it.
 // Additionally, the original entry is always sent to all of the groups.
@@ -48,6 +50,68 @@ var serviceConfig = map[int][][]string{
 
 var workerPool = map[string][]*Process{}
 var workerAccessCounter = map[string]*uint64{}
+var defaultConverters [][]string
+
+func init() {
+	loadServiceConfigFromEnv()
+}
+
+// TULIP_CONVERTERS format: "8080:b64decode;3000:websockets,b64decode"
+// CONVERTER_DEFAULT applies b64decode (or comma-separated list) to every port.
+func loadServiceConfigFromEnv() {
+	if raw := os.Getenv("TULIP_CONVERTERS"); raw != "" {
+		for _, entry := range strings.Split(raw, ";") {
+			entry = strings.TrimSpace(entry)
+			if entry == "" {
+				continue
+			}
+			parts := strings.SplitN(entry, ":", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			port, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+			if err != nil {
+				continue
+			}
+			serviceConfig[port] = parseConverterStages(parts[1])
+		}
+	}
+
+	if raw := os.Getenv("CONVERTER_DEFAULT"); raw != "" {
+		defaultConverters = parseConverterStages(raw)
+	}
+}
+
+func parseConverterStages(raw string) [][]string {
+	var stages [][]string
+	for _, stage := range strings.Split(raw, ";") {
+		stage = strings.TrimSpace(stage)
+		if stage == "" {
+			continue
+		}
+		converters := []string{}
+		for _, converter := range strings.Split(stage, ",") {
+			converter = strings.TrimSpace(converter)
+			if converter != "" {
+				converters = append(converters, converter)
+			}
+		}
+		if len(converters) > 0 {
+			stages = append(stages, converters)
+		}
+	}
+	return stages
+}
+
+func ConfigForPort(port int) ([][]string, bool) {
+	if config, ok := serviceConfig[port]; ok {
+		return config, true
+	}
+	if len(defaultConverters) > 0 {
+		return defaultConverters, true
+	}
+	return nil, false
+}
 
 // GetWorker
 // This is a naive implementation of round-robin, ideally the pool load balancing would give the first free one,

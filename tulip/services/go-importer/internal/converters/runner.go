@@ -9,7 +9,7 @@ import (
 
 func RunPipeline(g_db *db.Database, entry *db.FlowEntry) {
 	// TODO: should we also check src port?
-	config, ok := serviceConfig[int(entry.Dst_port)]
+	config, ok := ConfigForPort(int(entry.Dst_port))
 	if !ok {
 		return
 	}

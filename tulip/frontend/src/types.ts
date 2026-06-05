@@ -6,7 +6,6 @@ export interface Flow {
   dst_ip: string;
   time: number;
   duration: number;
-  // TODO: Get this from backend instead of hacky workaround
   service_tag: string;
   num_packets: number;
   parent_id: Id;

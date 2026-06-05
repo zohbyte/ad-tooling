@@ -1,64 +1,67 @@
-# Services
+# Tulip Services
 
+Traffic analysis backend for AD CTF tooling. Ingests PCAPs, stores flows in TimescaleDB, exposes a Flask REST API.
 
-
-### General idea
-We create pcap of N minutes on the virtual machine. We somehow download them, and use the `importer.py` script to analyze and import them into mongodb. The webapp does rest request to the webservices, that does query to mongodb.
-
-
-### MongoDB structure
-We use a single collection for all the pcaps
-Each document will have:
-```{
-        "inx": //progressive flow index inside pcap
-        "time": //start timestamp
-        "duration": //end_time-start_time
-        "src_ip": "127.0.0.1",
-        "src_port": 1234 ,
-        "dst_ip": "127.0.0.1",
-        "dst_port": 1234,
-        "contains_flag": //true if the importer have found that the flow contains a flag based on the env var regex
-        "flow": [
-            {
-                "data": "...", // session data (capped at 15 MB)
-                "from": "c" // "c" for client, "s" for server
-                "time": //timestamp
-            }, 
-            ...
-        ],
-
-    }
+## Architecture
 
 ```
+PCAP dir ──► assembler (Go) ──► TimescaleDB
+                │                    ▲
+                ├── converters (Python child processes)
+                └── flag/flagid tagging
 
-# Services description
-All the end-points return an object or an array of objects.
+eve.json ──► enricher (Go) ──► Suricata signature tags
 
-##### POST /query
-Accept the following payload
+flagids.py ──► scoreboard API ──► flag_id table
+
+Flask API (webservice.py) ◄── React frontend
 ```
-    {
-       flow.data: "regex on data field of flow",
-       dst_ip: "1.2.3.4"
-       dst_port: "1.2.3.4"
-       time : {"$gte": from_millis,
-               "$lt": to_millis}
-    }
 
+## Docker services
+
+| Service | Role |
+|---------|------|
+| `timescale` | TimescaleDB with Tulip schema |
+| `assembler` | PCAP watcher, TCP/UDP reassembly, tagging |
+| `enricher` | Suricata `eve.json` → flow signatures |
+| `suricata` | PCAP replay IDS (Glitch overlay only) |
+| `api` | Flask REST API |
+| `frontend` | React UI on port 3000 |
+| `flagids` | Scoreboard flagid scraper |
+| `gateway` | Exploit management UI on port 8000 |
+
+## API endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/ping` | Health check |
+| `POST` | `/query` | Search flows (regex, IP, port, time, tags) |
+| `GET` | `/flow/<id>` | Full flow with items |
+| `GET` | `/services` | Service list from config |
+| `GET` | `/tick_info` | CTF tick configuration |
+| `GET` | `/stats` | Per-tick statistics |
+| `GET` | `/tags` | Available tags |
+| `POST` | `/star` | Star/unstar a flow |
+| `GET` | `/to_python_request/<id>` | Export as Python requests |
+| `GET` | `/to_pwn/<id>` | Export as pwntools |
+
+## Configuration
+
+Environment variables (see `.env.glitch.example` for Glitch defaults):
+
+- `TULIP_SERVICES` — `port name` lines for service tagging
+- `VM_IP`, `GAME_ROUTER_IP` — Glitch network layout
+- `FLAG_REGEX`, `TICK_START`, `TICK_LENGTH`, `FLAG_LIFETIME`
+- `CONVERTER_DEFAULT`, `TULIP_CONVERTERS` — protocol decoder pipelines
+- `FLAGID_ENDPOINT`, `FLAGID_SCRAPE`, `FLAGID_MODE` — flagid ingestion
+
+Service definitions are loaded in `api/configurations.py` from env at startup.
+
+## Glitch deployment
+
+```bash
+cp .env.glitch.example .env
+./start-glitch.sh
 ```
-It returns an array of documents, WITHOUT the "flow" field
 
-##### GET /services
-Returns informations about all services. It is configurable on `configurations.py`
-
-##### GET /flow/(flow_id)
-Returns the all document with `flow_id` id, including the field `flow`
-
-##### GET /star/(flow_id)/(0,1)
-Set the flow favourite (1) or not (0)
-
-##### POST /to_python_request/(tokenize)
-convert the request to python syntax. Tokenize is used to toggle the auto-parsing of args.
-
-##### GET /to_pwn/(id)
-Convert the flow with the specified id in pwntools syntax
+Uses `docker-compose.yml` + `docker-compose.glitch.yml` overlay which enables converters, Suricata, and Glitch flagid scraping.

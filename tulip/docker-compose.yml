@@ -50,13 +50,21 @@ services:
       - internal
     volumes:
       - ${TRAFFIC_DIR_HOST}:${TRAFFIC_DIR_DOCKER}:ro
+      - tulip-config:/config
     environment:
       TIMESCALE: ${TIMESCALE}
       TULIP_TRAFFIC_DIR: ${TRAFFIC_DIR_DOCKER}
       FLAG_REGEX: ${FLAG_REGEX}
       TICK_START: ${TICK_START}
       TICK_LENGTH: ${TICK_LENGTH}
+      FLAG_LIFETIME: ${FLAG_LIFETIME}
       VM_IP: ${VM_IP}
+      GAME_ROUTER_IP: ${GAME_ROUTER_IP:-10.100.0.1}
+      TULIP_SERVICES: ${TULIP_SERVICES:-}
+      TULIP_SERVICES_JSON: ${TULIP_SERVICES_JSON:-}
+      TULIP_SERVICES_FILE: ${TULIP_SERVICES_FILE:-/config/services.json}
+      TULIP_AUTH_PASSWORD: ${TULIP_AUTH_PASSWORD:-}
+      VISUALIZER_URL: ${VISUALIZER_URL:-}
 
   flagids:
     restart: unless-stopped
@@ -74,6 +82,7 @@ services:
       FLAGID_SCRAPE: ${FLAGID_SCRAPE}
       TEAM_ID: ${TEAM_ID}
       FLAGID_ENDPOINT: ${FLAGID_ENDPOINT}
+      FLAGID_MODE: ${FLAGID_MODE:-}
       VISUALIZER_URL: ${VISUALIZER_URL}
       DUMP_PCAPS: ${DUMP_PCAPS}
 
@@ -96,7 +105,7 @@ services:
     # - -flush-after: i.e. 2m Not needed in pcap rotation mode
     # - -disable-converters: disable converters
     # - -discard-extra-data: dont split large flow items, just discard them
-    command: "./assembler -http-session-tracking -skipchecksum -disable-converters -dir ${TRAFFIC_DIR_DOCKER}"
+    # entrypoint.sh picks live (PCAP_OVER_IP) or file watch (-dir) automatically
     environment:
       TIMESCALE: ${TIMESCALE}
       FLAG_REGEX: ${FLAG_REGEX}
@@ -107,10 +116,13 @@ services:
       FLAG_VALIDATOR_TYPE: ${FLAG_VALIDATOR_TYPE}
       FLAG_VALIDATOR_TEAM: ${FLAG_VALIDATOR_TEAM}
       PCAP_OVER_IP: ${PCAP_OVER_IP}
+      TRAFFIC_DIR_DOCKER: ${TRAFFIC_DIR_DOCKER}
       DUMP_PCAPS: ${DUMP_PCAPS}
       DUMP_PCAPS_INTERVAL: ${DUMP_PCAPS_INTERVAL}
       DUMP_PCAPS_FILENAME: ${DUMP_PCAPS_FILENAME}
       BPF: ${BPF}
+      CONVERTER_DEFAULT: ${CONVERTER_DEFAULT:-}
+      TULIP_CONVERTERS: ${TULIP_CONVERTERS:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -130,8 +142,33 @@ services:
     environment:
       TIMESCALE: ${TIMESCALE}
 
+  gateway:
+    build:
+      context: ..
+      dockerfile: web_interface/Dockerfile
+    image: ad-tooling-gateway:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - internal
+    ports:
+      - "8000:8000"
+    volumes:
+      - workspaces:/workspaces
+    environment:
+      TOOLING_API_KEY: ${TOOLING_API_KEY:-supersecretkey}
+      TULIP_API_BASE: http://api:5000
+      TULIP_UI_URL: http://localhost:3000
+      DEFAULT_TEAM: ${DEFAULT_TEAM:-exploits}
+      GLITCH_API_BASE: ${GLITCH_API_BASE:-https://glitch.ad}
+      GLITCH_NOP_HOST: ${GLITCH_NOP_HOST:-10.100.1.1}
+      FLAG_REGEX: ${FLAG_REGEX}
+
 volumes:
+  workspaces:
   timescale-data:
+  tulip-config:
 
 networks:
   internal:

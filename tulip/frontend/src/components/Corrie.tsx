@@ -127,17 +127,8 @@ export const Corrie = () => {
     }
   ).data;
 
-  // TODO: fix the below transformation - move it to server
-  // Diederik gives you a beer once it has been fixed
-  const transformedFlowData = flowData?.map((flow) => ({
-    ...flow,
-    service_tag:
-      services?.find((s) => s.ip === flow.dst_ip && s.port === flow.dst_port)
-        ?.name ?? "unknown",
-  }));
-
   const graphProps: GraphProps = {
-    flowList: transformedFlowData || [],
+    flowList: flowData || [],
     statsList: statsData || [],
     underAttackData: underAttackData || {},
     mode: mode,

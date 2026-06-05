@@ -4,3 +4,6 @@ OBJS = tulip.o
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
+# Tulip does not need LLVM bitcode; skip clang-N dependency in extension builds
+with_llvm := no
+BITCODE :=

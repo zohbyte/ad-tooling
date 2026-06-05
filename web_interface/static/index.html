@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AD Tooling Gateway</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8fa3bf;
+      --accent: #3b82f6;
+      --ok: #22c55e;
+      --err: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+    header h1 { margin: 0; font-size: 1.1rem; }
+    .links a { color: var(--accent); margin-left: 1rem; text-decoration: none; }
+    main {
+      display: grid;
+      grid-template-columns: 280px 1fr 320px;
+      gap: 1rem;
+      padding: 1rem;
+      min-height: calc(100vh - 60px);
+    }
+    @media (max-width: 1100px) {
+      main { grid-template-columns: 1fr; }
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    h2 { margin: 0 0 0.75rem; font-size: 0.95rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    input, select, button, textarea {
+      font: inherit;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #0b1018;
+      color: var(--text);
+      padding: 0.5rem 0.65rem;
+    }
+    button {
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.secondary { background: #334155; }
+    button.danger { background: #7f1d1d; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 120px; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li {
+      padding: 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    li:hover, li.active { background: #243044; }
+    textarea {
+      width: 100%;
+      min-height: 360px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+    }
+    pre.output {
+      background: #0b1018;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      min-height: 200px;
+      max-height: 400px;
+      overflow: auto;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .status { font-size: 0.85rem; color: var(--muted); }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--err); }
+    .flags { margin-top: 0.5rem; }
+    .flag {
+      display: inline-block;
+      background: #14532d;
+      color: #bbf7d0;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      margin: 0.15rem 0.25rem 0 0;
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.2rem; }
+    .field { margin-bottom: 0.65rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AD Tooling Gateway</h1>
+    <div class="links">
+      <span class="status" id="health"></span>
+      <a id="tulip-link" href="http://localhost:3000" target="_blank">Tulip UI</a>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Exploits</h2>
+      <div class="row">
+        <button id="new-btn">New</button>
+        <button id="template-btn" class="secondary">Template</button>
+        <label style="flex:2">
+          <input type="file" id="upload-input" accept=".py" hidden />
+          <button id="upload-btn" class="secondary" style="width:100%">Upload</button>
+        </label>
+      </div>
+      <ul id="exploit-list"></ul>
+    </section>
+
+    <section>
+      <h2>Editor</h2>
+      <div class="field">
+        <label>Filename</label>
+        <input id="filename" placeholder="exploit.py" />
+      </div>
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div class="row" style="margin-top:0.75rem">
+        <button id="save-btn">Save</button>
+        <button id="delete-btn" class="danger">Delete</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Run</h2>
+      <div class="field">
+        <label>Target host (NOP default)</label>
+        <input id="target-host" />
+      </div>
+      <div class="field">
+        <label>Flag ID</label>
+        <input id="flagid" placeholder="from scoreboard" />
+      </div>
+      <div class="row">
+        <button id="run-btn">Run exploit</button>
+        <button id="flagids-btn" class="secondary">Load flagids</button>
+      </div>
+      <div class="field" style="margin-top:0.75rem">
+        <label>Flag IDs (pick one)</label>
+        <select id="flagid-select"><option value="">— load flagids first —</option></select>
+      </div>
+      <h2 style="margin-top:1rem">Output</h2>
+      <pre class="output" id="output">Ready.</pre>
+      <div class="flags" id="flags"></div>
+    </section>
+  </main>
+
+  <script>
+    const apiKey = localStorage.getItem("gateway_api_key") || prompt("API key (TOOLING_API_KEY):") || "";
+    if (apiKey) localStorage.setItem("gateway_api_key", apiKey);
+
+    let config = { default_team: "exploits", nop_host: "10.100.1.1" };
+    let selectedFile = null;
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, {
+        ...opts,
+        headers: {
+          "X-API-Key": apiKey,
+          ...(opts.headers || {}),
+        },
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+      }
+      const ct = res.headers.get("content-type") || "";
+      return ct.includes("json") ? res.json() : res.text();
+    }
+
+    async function loadConfig() {
+      config = await api("/api/config");
+      document.getElementById("target-host").value = config.nop_host;
+      document.getElementById("tulip-link").href = config.tulip_url;
+    }
+
+    async function checkHealth() {
+      const el = document.getElementById("health");
+      try {
+        await api("/api/ping");
+        const tulip = await api("/api/tulip/ping", { method: "POST" });
+        el.textContent = tulip.status === 200 ? "Gateway + Tulip OK" : "Gateway OK, Tulip down";
+        el.className = "status " + (tulip.status === 200 ? "ok" : "err");
+      } catch (e) {
+        el.textContent = "Gateway error";
+        el.className = "status err";
+      }
+    }
+
+    async function listExploits() {
+      const files = await api(`/api/workspaces/${config.default_team}/exploits`);
+      const ul = document.getElementById("exploit-list");
+      ul.innerHTML = "";
+      for (const f of files) {
+        const li = document.createElement("li");
+        li.textContent = f;
+        if (f === selectedFile) li.classList.add("active");
+        li.onclick = () => openExploit(f);
+        ul.appendChild(li);
+      }
+    }
+
+    async function openExploit(name) {
+      selectedFile = name;
+      const data = await api(`/api/workspaces/${config.default_team}/exploits/${name}`);
+      document.getElementById("filename").value = name;
+      document.getElementById("editor").value = data.content;
+      listExploits();
+    }
+
+    async function saveExploit() {
+      const filename = document.getElementById("filename").value.trim();
+      if (!filename.endsWith(".py")) return alert("Filename must end with .py");
+      await api(`/api/workspaces/${config.default_team}/exploits/${filename}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          team: config.default_team,
+          filename,
+          content: document.getElementById("editor").value,
+        }),
+      });
+      selectedFile = filename;
+      await listExploits();
+      document.getElementById("output").textContent = `Saved ${filename}`;
+    }
+
+    async function runExploit() {
+      const filename = document.getElementById("filename").value.trim() || selectedFile;
+      const host = document.getElementById("target-host").value.trim();
+      const flagid = document.getElementById("flagid").value.trim();
+      if (!filename || !host || !flagid) return alert("Need filename, host, and flagid");
+
+      document.getElementById("output").textContent = "Running...";
+      const result = await api("/api/exploits/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          team: config.default_team,
+          workspace: config.default_team,
+          filename,
+          args: [host, flagid],
+        }),
+      });
+
+      const out = [
+        `exit ${result.returncode}`,
+        result.stdout && `--- stdout ---\n${result.stdout}`,
+        result.stderr && `--- stderr ---\n${result.stderr}`,
+      ].filter(Boolean).join("\n");
+      document.getElementById("output").textContent = out;
+
+      const flagsEl = document.getElementById("flags");
+      flagsEl.innerHTML = "";
+      for (const flag of result.flags || []) {
+        const span = document.createElement("span");
+        span.className = "flag";
+        span.textContent = flag;
+        flagsEl.appendChild(span);
+      }
+    }
+
+    function collectFlagids(node, out) {
+      if (typeof node === "string" && node.trim()) out.push(node.trim());
+      else if (Array.isArray(node)) node.forEach((x) => collectFlagids(x, out));
+      else if (node && typeof node === "object") Object.values(node).forEach((x) => collectFlagids(x, out));
+    }
+
+    async function loadFlagids() {
+      const data = await api("/api/glitch/flagids");
+      const ids = [];
+      collectFlagids(data, ids);
+      const unique = [...new Set(ids)].sort();
+      const sel = document.getElementById("flagid-select");
+      sel.innerHTML = '<option value="">— select flagid —</option>';
+      for (const id of unique.slice(0, 500)) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = id.length > 60 ? id.slice(0, 57) + "..." : id;
+        sel.appendChild(opt);
+      }
+      document.getElementById("output").textContent = `Loaded ${unique.length} flagids`;
+    }
+
+    document.getElementById("flagid-select").onchange = (e) => {
+      if (e.target.value) document.getElementById("flagid").value = e.target.value;
+    };
+
+    document.getElementById("save-btn").onclick = () => saveExploit().catch(showErr);
+    document.getElementById("run-btn").onclick = () => runExploit().catch(showErr);
+    document.getElementById("flagids-btn").onclick = () => loadFlagids().catch(showErr);
+    document.getElementById("new-btn").onclick = () => {
+      selectedFile = null;
+      document.getElementById("filename").value = "exploit.py";
+      document.getElementById("editor").value = "";
+    };
+    document.getElementById("template-btn").onclick = async () => {
+      const data = await api("/api/exploit-template");
+      document.getElementById("editor").value = data.template;
+      document.getElementById("filename").value = "exploit.py";
+    };
+    document.getElementById("upload-btn").onclick = () => document.getElementById("upload-input").click();
+    document.getElementById("upload-input").onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const form = new FormData();
+      form.append("file", file);
+      await api(`/api/workspaces/${config.default_team}/exploits`, { method: "POST", body: form });
+      await listExploits();
+      await openExploit(file.name);
+    };
+    document.getElementById("delete-btn").onclick = async () => {
+      const filename = document.getElementById("filename").value.trim();
+      if (!filename || !confirm(`Delete ${filename}?`)) return;
+      await api(`/api/workspaces/${config.default_team}/exploits/${filename}`, { method: "DELETE" });
+      selectedFile = null;
+      document.getElementById("editor").value = "";
+      document.getElementById("filename").value = "";
+      await listExploits();
+    };
+
+    function showErr(e) {
+      document.getElementById("output").textContent = e.message;
+    }
+
+    loadConfig().then(() => {
+      checkHealth();
+      listExploits();
+    }).catch(showErr);
+  </script>
+</body>
+</html>

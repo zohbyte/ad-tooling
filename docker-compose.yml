@@ -1,0 +1,20 @@
+version: "3.5"
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: web_interface/Dockerfile
+    image: ad-tooling-gateway:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - workspaces:/workspaces
+    environment:
+      TOOLING_API_KEY: ${TOOLING_API_KEY:-supersecretkey}
+      TULIP_API_BASE: ${TULIP_API_BASE:-http://host.docker.internal:5000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  workspaces:
