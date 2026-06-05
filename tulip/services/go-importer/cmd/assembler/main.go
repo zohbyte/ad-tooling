@@ -197,8 +197,13 @@ func main() {
 	defer util.Run()()
 
 	flag.Parse()
-	if flag.NArg() < 1 && *watch_dir == "" {
-		log.Fatal("Usage: ./go-importer <file0.pcap> ... <fileN.pcap>")
+
+	if *pcap_over_ip == "" {
+		*pcap_over_ip = os.Getenv("PCAP_OVER_IP")
+	}
+
+	if flag.NArg() < 1 && *watch_dir == "" && *pcap_over_ip == "" {
+		log.Fatal("Usage: ./assembler [-dir <path>|-pcap-over-ip <host:port>] [<file0.pcap> ... <fileN.pcap>]")
 	}
 
 	// DELAY for testing
@@ -274,10 +279,6 @@ func main() {
 		if *flag_regex == "" {
 			log.Print("WARNING; no flag regex found. No flag-in or flag-out tags will be applied.")
 		}
-	}
-
-	if *pcap_over_ip == "" {
-		*pcap_over_ip = os.Getenv("PCAP_OVER_IP")
 	}
 
 	// if flagid scans should be done
